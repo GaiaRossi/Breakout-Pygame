@@ -22,6 +22,7 @@ class Ball(pygame.sprite.Sprite):
         self.vel = vel
         self.width = self.height = radius * 2
         self.facing = 'right'
+        self.radius = radius
 
         self.image = pygame.Surface([radius * 2, radius * 2])
         self.image.fill(BLACK)
@@ -81,6 +82,25 @@ class Block(pygame.sprite.Sprite):
 
         self.rect = self.image.get_rect()
 
+#linea che da la traiettoria della pallina
+class Line(pygame.sprite.Sprite):
+
+    def __init__(self, start, end, color, thickness = 1):
+        
+        super().__init__()
+
+        self.color = color
+        self.thickness = thickness
+        self.width = end[0] - start[0]
+        self.height = end[1] - start[1]
+
+        self.image = pygame.Surface([self.width, self.height])
+        self.image.fill(BLACK)
+        self.image.set_colorkey(BLACK)
+
+        pygame.draw.line(self.image, self.color, (0,0), (self.width, self.height))
+
+        self.rect = self.image.get_rect()
 
 
 #mainloop
@@ -95,7 +115,7 @@ blocks = pygame.sprite.Group()
 all_sprites = pygame.sprite.Group()
 
 #creazione della pallina
-ball = Ball(PURPLE, 10, [4, 4])
+ball = Ball(PURPLE, 9, [4, 4])
 ball.rect.x = 250
 ball.rect.y = 250
 all_sprites.add(ball)
@@ -111,8 +131,9 @@ player_vel = 5
 num_blocks = 44
 j = 0
 h = 0
+bheight, bwidth = 20, 40
 for i in range(num_blocks):
-    block = Block(COLORS[h], 40, 15)
+    block = Block(COLORS[h], bwidth, bheight)
     if 5 + 45*j + 40 <= screen_width:
         block.rect.x = 5 + 45*j
         j += 1
@@ -120,9 +141,14 @@ for i in range(num_blocks):
         j = 0
         block.rect.x = 5
         h += 1    
-    block.rect.y = 5 + 20*h
+    block.rect.y = 5 + (bheight + 5)*h
     blocks.add(block)
     all_sprites.add(block)
+
+#creazione della traiettoria
+l = Line([260, 260], [screen_width, 370], RED)
+l.rect.x = l.rect.y = 260
+
 
 #creazione del testo
 font = pygame.font.SysFont("lucida console", 15)
@@ -152,20 +178,20 @@ while running:
     #controllo tasti premuti
     keys = pygame.key.get_pressed()
 
+    if keys[pygame.K_RIGHT]:
+        if player.rect.x + player.width < screen_width:
+            player.moveRight(player_vel)
+
+    if keys[pygame.K_LEFT]:
+        if player.rect.x > 0:
+            player.moveLeft(player_vel)
+
     if not(paused):
-        if keys[pygame.K_RIGHT]:
-            if player.rect.x + player.width < screen_width:
-                player.moveRight(player_vel)
-
-        if keys[pygame.K_LEFT]:
-            if player.rect.x > 0:
-                player.moveLeft(player_vel)
-
         ball.move()
         #controllo collisione pallina con blocchi
         ball.changing = False
         for block in blocks:
-            if pygame.sprite.collide_mask(ball, block) and (ball.rect.right < block.rect.left or ball.rect.left > block.rect.right) and ball.rect.y <= block.rect.y + block.height:
+            if pygame.sprite.collide_mask(ball, block) and (ball.rect.right >= block.rect.left or ball.rect.left <= block.rect.right) and ball.rect.y - ball.vel[1] < block.rect.bottom :
                 if not(ball.changing):
                     ball.changing = True
                     ball.vel[0] = -ball.vel[0]
@@ -214,12 +240,15 @@ while running:
         #controllo punteggio
         if len(blocks.sprites()) == 0:
             score_text = font.render(testo_win, True, GREEN)
+            ball.vel = [0, 0]
 
     else:
         if score >= 0:
             score_text = font.render(testo_continua, True, RED)
+            all_sprites.add(l)
             if keys[pygame.K_SPACE]:
                 paused = False
+                all_sprites.remove(l)
         else:
             score_text = font.render(testo_defeat, True, RED)
 
